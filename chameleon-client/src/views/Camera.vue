@@ -13,8 +13,9 @@
                 Download
             </v-btn>
             <br>
+            <input type="file" ref="upload" style="display: none" accept=".json" @change="pipelineUpload">
             <v-btn :width="120" tile color="#4baf62" class="topMenuButtons"
-                   @click="handleInput('command','save')">
+                   @click="$refs.upload.click()">
                 <v-icon>mdi-file-upload</v-icon>
                 Upload
             </v-btn>
@@ -290,6 +291,22 @@
             },
             downloadPipeline() {
                 require("downloadjs")(JSON.stringify(this.pipeline, null, 2), this.pipelineList[this.currentPipelineIndex - 1], "application/json")
+            },
+            pipelineUpload(event) {
+                let file = event.target.files[0];
+                let fileReader = new FileReader();
+                fileReader.onload = function (e) {
+                    let json = JSON.parse(e.target.result);
+                    let nickname = json['nickname'];
+                    let suffix = 1;
+                    while (this.pipelineList.includes(nickname)) {
+                        nickname = json['nickname'] + suffix;
+                        suffix++;
+                    }
+                    json['nickname'] = nickname;
+                    this.handleInput("uploadPipeline", json);
+                }.bind(this);
+                fileReader.readAsText(file);
             }
         },
         data() {

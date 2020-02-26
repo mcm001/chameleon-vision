@@ -2,6 +2,7 @@ package com.chameleonvision.web;
 
 import com.chameleonvision.config.CameraCalibrationConfig;
 import com.chameleonvision.config.ConfigManager;
+import com.chameleonvision.config.serializers.StandardCVPipelineSettingsDeserializer;
 import com.chameleonvision.vision.VisionManager;
 import com.chameleonvision.vision.VisionProcess;
 import com.chameleonvision.vision.camera.CameraCapture;
@@ -11,9 +12,11 @@ import com.chameleonvision.vision.enums.ImageRotationMode;
 import com.chameleonvision.vision.enums.StreamDivisor;
 import com.chameleonvision.vision.pipeline.CVPipeline;
 import com.chameleonvision.vision.pipeline.impl.StandardCVPipeline;
+import com.chameleonvision.vision.pipeline.impl.StandardCVPipelineSettings;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import edu.wpi.cscore.VideoMode;
 import io.javalin.websocket.WsBinaryMessageContext;
 import io.javalin.websocket.WsCloseContext;
@@ -21,6 +24,8 @@ import io.javalin.websocket.WsConnectContext;
 import io.javalin.websocket.WsContext;
 import org.apache.commons.lang3.ArrayUtils;
 import org.msgpack.jackson.dataformat.MessagePackFactory;
+import org.opencv.core.MatOfPoint3f;
+import org.opencv.core.Point3;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -52,7 +57,8 @@ public class SocketHandler {
     @SuppressWarnings("unchecked")
     void onBinaryMessage(WsBinaryMessageContext context) throws Exception {
         Map<String, Object> deserialized = objectMapper.readValue((byte[]) ArrayUtils.toPrimitive(context.data()),
-                new TypeReference<>(){});
+                new TypeReference<>() {
+                });
         for (Map.Entry<String, Object> entry : deserialized.entrySet()) {
             try {
                 VisionProcess currentProcess = VisionManager.getCurrentUIVisionProcess();
@@ -86,6 +92,17 @@ public class SocketHandler {
                         String pipeName = (String) entry.getValue();
                         // TODO: add to UI selection for new 2d/3d
                         currentProcess.pipelineManager.addNewPipeline(pipeName);
+                        sendFullSettings();
+                        VisionManager.saveCurrentCameraPipelines();
+                        break;
+                    }
+                    case "uploadPipeline": {
+                        ObjectMapper mapper = new ObjectMapper();
+                        SimpleModule module = new SimpleModule();
+                        module.addDeserializer(StandardCVPipelineSettings.class, new StandardCVPipelineSettingsDeserializer());
+                        mapper.registerModule(module);
+                        StandardCVPipelineSettings pipelineSettings = mapper.convertValue(entry.getValue(), StandardCVPipelineSettings.class);
+                        currentProcess.pipelineManager.addPipeline(pipelineSettings);
                         sendFullSettings();
                         VisionManager.saveCurrentCameraPipelines();
                         break;
@@ -232,7 +249,21 @@ public class SocketHandler {
         for (Field field : cvClass.getFields()) { // iterate over every field in CVPipelineSettings
             try {
                 if (!field.getType().isEnum()) { // if the field is not an enum, get it based on the current pipeline
-                    tmp.put(field.getName(), field.get(VisionManager.getCurrentUIVisionProcess().pipelineManager.getCurrentPipeline().settings));
+                    if (field.getType() == MatOfPoint3f.class) {
+                        MatOfPoint3f mat = (MatOfPoint3f) field.get(VisionManager.getCurrentUIVisionProcess().pipelineManager.getCurrentPipeline().settings);
+                        List<Point3> list = mat.toList();
+                        List<ArrayList<Double>> newList = new ArrayList<>();
+                        for (Point3 c : list) {
+                            newList.add(new ArrayList<>(
+                                    Arrays.asList(c.x, c.y, c.z)
+                            ));
+                        }
+                        tmp.put(field.getName(), newList);
+
+
+                    } else {
+                        tmp.put(field.getName(), field.get(VisionManager.getCurrentUIVisionProcess().pipelineManager.getCurrentPipeline().settings));
+                    }
                 } else {
                     var ordinal = (Enum) field.get(VisionManager.getCurrentUIVisionProcess().pipelineManager.getCurrentPipeline().settings);
                     tmp.put(field.getName(), ordinal.ordinal());
