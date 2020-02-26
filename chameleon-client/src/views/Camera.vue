@@ -1,5 +1,24 @@
 <template>
     <div>
+        <div class="topRight">
+            <v-btn :width="120" tile color="#4baf62" class="topMenuButtons"
+                   @click="handleInput('command','save')">
+                <v-icon>save</v-icon>
+                Save
+            </v-btn>
+            <br>
+            <v-btn :width="120" tile color="#4baf62" class="topMenuButtons"
+                   @click="downloadPipeline">
+                <v-icon>mdi-file-download</v-icon>
+                Download
+            </v-btn>
+            <br>
+            <v-btn :width="120" tile color="#4baf62" class="topMenuButtons"
+                   @click="handleInput('command','save')">
+                <v-icon>mdi-file-upload</v-icon>
+                Upload
+            </v-btn>
+        </div>
         <div>
             <v-row align="center">
                 <v-col :cols="3" class="colsClass">
@@ -57,13 +76,6 @@
                         </v-list>
                     </v-menu>
                 </v-col>
-
-                <v-btn style="position: absolute; top:5px;right: 0;" tile color="#4baf62"
-                       @click="handleInput('command','save')">
-                    <v-icon>save</v-icon>
-                    Save
-                </v-btn>
-
             </v-row>
         </div>
         <v-row>
@@ -275,6 +287,9 @@
                 } else {
                     this.snackbar = true;
                 }
+            },
+            downloadPipeline() {
+                require("downloadjs")(JSON.stringify(this.pipeline, null, 2), this.pipelineList[this.currentPipelineIndex - 1], "application/json")
             }
         },
         data() {
@@ -421,10 +436,16 @@
     }
 
 
-    .tableClass {
-        padding-top: 5px;
-        width: 70%;
-        text-align: center;
+    .topMenuButtons {
+        display: inline-block;
+        margin-top: 2px;
+    }
+
+    .topRight {
+        position: absolute;
+        top: 10px;
+        right: 0;
+        z-index: 4;
     }
 
     th {
